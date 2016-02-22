@@ -7,7 +7,7 @@
 #include "timers.h"
 #include "mq.h"
 
-key_state last_state[3] = {up, up, up};
+bool last_state_down[3] = {false, false, false};
 bool steady_state[3] = {true, true, true};
 bool key_repeating[3] = {false, false, false};
 uint16_t state_change_clock[3] = {0, 0, 0};
@@ -27,34 +27,27 @@ void init_keys(void)
 
 void handle_keys(void)
 {
-    for (int key = 0; key < 3; key++) {
-        if (key_down(key)) {
-            if (last_state[key] == up) {
-                last_state[key] = down;
-                steady_state[key] = false;
-                state_change_clock[key] = clock_count;
-            }
-            else if (clock_count - state_change_clock[key] > (key_repeating[key] ? repeat_subsequent_delay[key] : repeat_initial_delay[key])) {
-                state_change_clock[key] = clock_count;
-                mq_put(msg_create(M_KEY_REPEAT, key));
-                key_repeating[key] = true;
-            }
-            else if (!steady_state[key] && clock_count - state_change_clock[key] > DEBOUNCE_TIME) {
-                mq_put(msg_create(M_KEY_DOWN, key));
-                steady_state[key] = true;
-            }
+    for (uint8_t key = 0; key < 3; key++) {
+        bool down = key_down(key);
+
+        if (down != last_state_down[key]) {
+            // State change
+            last_state_down[key] = down;
+            steady_state[key] = false;
+            state_change_clock[key] = clock_count;
         }
-        else {
-            if (last_state[key] == down) {
-                last_state[key] = up;
-                steady_state[key] = false;
-                state_change_clock[key] = clock_count;
-            }
-            else if (!steady_state[key] && clock_count - state_change_clock[key] > DEBOUNCE_TIME) {
-                mq_put(msg_create(M_KEY_UP, key));
-                steady_state[key] = true;
+        else if (down && (clock_count - state_change_clock[key] > (key_repeating[key] ? repeat_subsequent_delay[key] : repeat_initial_delay[key]))) {
+            // Autorepeat
+            state_change_clock[key] = clock_count;
+            mq_put(msg_create(M_KEY_REPEAT, key));
+            key_repeating[key] = true;
+        }
+        else if (!steady_state[key] && clock_count - state_change_clock[key] > DEBOUNCE_TIME) {
+            // Debounce period over and key in same state
+            mq_put(msg_create(down ? M_KEY_DOWN : M_KEY_UP, key));
+            steady_state[key] = true;
+            if (!down)
                 key_repeating[key] = false;
-            }
         }
     }
 }
