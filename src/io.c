@@ -14,6 +14,17 @@ uint16_t state_change_clock[3] = {0, 0, 0};
 uint16_t repeat_initial_delay[3] = {300, 300, 300};
 uint16_t repeat_subsequent_delay[3] = {200, 50, 200};
 
+void init_keys(void)
+{
+    /* Set high 3 bits of port D as input */
+    DDRD &= 0b00011111;
+
+    /* Turn on pull-up resistors on high 3 bits */
+    PORTD |= 0b11100000;
+
+    DDRC |= 1 << 5;
+}
+
 void handle_keys(void)
 {
     for (int key = 0; key < 3; key++) {

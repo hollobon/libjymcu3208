@@ -21,6 +21,8 @@
 
 typedef enum {down, up} key_state;
 
+void init_keys(void);
+
 bool render_number(uint32_t number, uint8_t board[32]);
 
 bool render_string(const char* string, uint8_t board[32]);
